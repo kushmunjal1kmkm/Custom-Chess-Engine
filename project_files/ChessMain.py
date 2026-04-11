@@ -3,7 +3,7 @@ This is the main file for the chess engine. It will be responsible for handling 
 '''
 import os
 import pygame as p
-import ChessEngine
+from project_files import ChessEngine
 
 WIDTH = HEIGHT = 512
 DIMENSION = 8
