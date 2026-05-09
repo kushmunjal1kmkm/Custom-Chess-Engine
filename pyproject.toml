@@ -8,6 +8,4 @@ dependencies = [
     "pygame>=2.6.1",
 ]
 [tool.pyright]
-extraPaths = [
-    "project_files"
-]
+extraPaths = ["project_files"]
