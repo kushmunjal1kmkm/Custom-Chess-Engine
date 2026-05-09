@@ -246,45 +246,39 @@ class GameState():
                 break
 
         if self.whiteToMove:
-            if self.board[r-1][c] == "--": # pawn first move forward moves 
-                if not piecePinned or pinDirection == (-1,0):
-                    moves.append(Move((r,c),(r-1,c),self.board))
-                    if r == 6 and self.board[r-2][c] == "--": # pawn second moves 1st is free we have we have established that
-                        moves.append(Move((r,c),(r-2,c),self.board))
-            if c-1 >= 0: # capture to the left
-                if self.board[r-1][c-1].startswith("black"):
-                    if not piecePinned or pinDirection == (-1,-1): # if the piece is not pinned or the pin direction is (-1,-1) then we can move along that direction because we are moving in the direction of the pin
-                        moves.append(Move((r,c),(r-1,c-1),self.board))
-                elif (r-1,c-1) == self.empassantpossible:
-                    if not piecePinned or pinDirection == (-1,-1):
-                        moves.append(Move((r,c),(r-1,c-1),self.board,empassantpossible=True))
-            if c+1 <= 7: # capture to the right
-                if self.board[r-1][c+1].startswith("black"):
-                    if not piecePinned or pinDirection == (-1,1): # if the piece is not pinned or the pin direction is (-1,1) then we can move along that direction because we are moving in the direction of the pin
-                        moves.append(Move((r,c),(r-1,c+1),self.board))
-                elif (r-1,c+1) == self.empassantpossible:
-                    if not piecePinned or pinDirection == (-1,1):
-                        moves.append(Move((r,c),(r-1,c+1),self.board,empassantpossible=True))
+            moveAmmount = -1
+            startRow = 6
+            endRow = 0
+            enemyColor = "black"
         else:
-            if self.board[r+1][c] == "--": # pawn first move
-                if not piecePinned or pinDirection == (1,0): # if the piece is not pinned or the pin direction is (1,0) then we can move along that direction because we are moving in the direction of the pin
-                    moves.append(Move((r,c),(r+1,c),self.board))
-                    if r == 1 and self.board[r+2][c] == "--": # pawn second moves 1st is free we have we have established that
-                        moves.append(Move((r,c),(r+2,c),self.board))
-            if c-1 >= 0: # capture to the left
-                if self.board[r+1][c-1].startswith("white"):
-                    if not piecePinned or pinDirection == (1,-1):
-                        moves.append(Move((r,c),(r+1,c-1),self.board))
-                elif (r+1,c-1) == self.empassantpossible:
-                    if not piecePinned or pinDirection == (1,-1):
-                        moves.append(Move((r,c),(r+1,c-1),self.board,empassantpossible=True))
-            if c+1 <= 7: # capture to the right
-                if self.board[r+1][c+1].startswith("white"):
-                    if not piecePinned or pinDirection == (1,1):
-                        moves.append(Move((r,c),(r+1,c+1),self.board))
-                elif (r+1,c+1) == self.empassantpossible:
-                    if not piecePinned or pinDirection == (1,1):
-                        moves.append(Move((r,c),(r+1,c+1),self.board,empassantpossible=True))
+            moveAmmount = 1
+            startRow = 1
+            endRow = 7
+            enemyColor = "white"
+        pawnPromotion = False
+
+        if self.board[r+moveAmmount][c] == "--": # pawn forward move
+            if not piecePinned or pinDirection == (moveAmmount, 0):
+                pawnPromotion = (r + moveAmmount == endRow)
+                moves.append(Move((r, c), (r+moveAmmount, c), self.board, isPawnPromotion=pawnPromotion))
+                if r == startRow and self.board[r+2*moveAmmount][c] == "--": # 2 square pawn advance
+                    moves.append(Move((r, c), (r+2*moveAmmount, c), self.board))
+        if c-1 >= 0: # capture to the left
+            if self.board[r+moveAmmount][c-1].startswith(enemyColor):
+                if not piecePinned or pinDirection == (moveAmmount, -1):
+                    pawnPromotion = (r + moveAmmount == endRow)
+                    moves.append(Move((r, c), (r+moveAmmount, c-1), self.board, isPawnPromotion=pawnPromotion))
+            elif (r+moveAmmount, c-1) == self.empassantpossible:
+                if not piecePinned or pinDirection == (moveAmmount, -1):
+                    moves.append(Move((r, c), (r+moveAmmount, c-1), self.board, empassantpossible=True))
+        if c+1 <= 7: # capture to the right
+            if self.board[r+moveAmmount][c+1].startswith(enemyColor):
+                if not piecePinned or pinDirection == (moveAmmount, 1):
+                    pawnPromotion = (r + moveAmmount == endRow)
+                    moves.append(Move((r, c), (r+moveAmmount, c+1), self.board, isPawnPromotion=pawnPromotion))
+            elif (r+moveAmmount, c+1) == self.empassantpossible:
+                if not piecePinned or pinDirection == (moveAmmount, 1):
+                    moves.append(Move((r, c), (r+moveAmmount, c+1), self.board, empassantpossible=True))
 
     '''
     function for getting all moves for rook located at the rth cth row and column and move them to the moves list
@@ -415,7 +409,7 @@ class Move():
     rowsToRanks = {v: k for k, v in ranksToRows.items()}
     colsToFiles = {v: k for k, v in filesToCols.items()}
 
-    def __init__(self, startSq, endSq, board , empassantpossible =False):
+    def __init__(self, startSq, endSq, board , empassantpossible =False ,isPawnPromotion = False):
         self.startRow = startSq[0]
         self.startCol = startSq[1]
         self.endRow = endSq[0]
@@ -426,7 +420,7 @@ class Move():
         if empassantpossible: # the real captured pawn is NOT on endRow/endCol (that square is empty), it's behind the destination
             self.pieceCaptured = board[self.startRow][self.endCol]
 
-        self.isPawnPromotion = (self.pieceMoved == "white-pawn" and self.endRow == 0) or (self.pieceMoved == "black-pawn" and self.endRow == 7)
+        self.isPawnPromotion = isPawnPromotion
 
         self.isEmpassantMove = empassantpossible
 
