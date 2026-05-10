@@ -1,6 +1,7 @@
 '''
 This is the main file for the chess engine. It will be responsible for handling user input and displaying the current gamestate object
 '''
+import smartmovefinder
 from pygame import color
 import os
 import pygame as p
@@ -55,8 +56,8 @@ def main():
     sqSelected = () # no square selected initially keep track of the last click of the user (tuple : (row, col))
     playerClicks = [] # store (row, col) of clicks (two clicks) (two tuples: [(6,4),(4,4)])
     
-    playerone = False
-    playertwo = False
+    playerone = False # if true then white plays
+    playertwo = False # if true then black plays
 
     while running:
         humanturn = (gs.whiteToMove and playerone) or (not gs.whiteToMove and playertwo)
@@ -109,11 +110,14 @@ def main():
                     playerClicks = []
                     gameOver = False
        
-        if not gameOver and not humanturn:
-            AIMove = smartmovefinder.findrandommove(validMoves)
-            gs.makeMove(AIMove)
-            moveMade = True
-            animate = True
+        if not gameOver and not humanturn and not moveMade: 
+            AIMove = smartmovefinder.findbestmoves(gs,validMoves)
+            if AIMove is None:
+                AIMove = smartmovefinder.findrandommove(validMoves)
+            if AIMove is not None:
+                gs.makeMove(AIMove)
+                moveMade = True
+                animate = True
 
         if moveMade:
             if animate:
