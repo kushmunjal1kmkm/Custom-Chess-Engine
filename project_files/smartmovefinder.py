@@ -3,6 +3,8 @@ import random
 piecescore = {"king":0, "queen":10, "rook":5, "bishop":3, "knight":3, "pawn":1}
 CHECKMATE = 1000
 STALEMATE = 0
+nextmove = None
+Depth = 3
 
 def findrandommove(validMoves):
     if len(validMoves) == 0:
@@ -51,6 +53,46 @@ def findbestmoves(gs,validMoves):
         gs.undoMove() # undo our move
         
     return bestmove
+
+def findbestmoveminmax(gs,validmoves):
+    global nextmove
+    nextmove = None
+    random.shuffle(validmoves) # Added so the AI doesn't play the exact same game every time
+    findmoveminmax(Depth,gs,validmoves,gs.whiteToMove)
+    return nextmove
+
+def findmoveminmax(depth,gs,validMoves,turnToMove):
+    global nextmove
+    # If we hit depth 0, or if the game is over (checkmate/stalemate), evaluate the board
+    if depth == 0 or len(validMoves) == 0:
+        return scorematerial(gs,gs.board)
+    
+    if turnToMove:
+        maxscore = -CHECKMATE-1
+        for move in validMoves:
+            gs.makeMove(move)
+            next_moves = gs.getValidMoves()
+            score = findmoveminmax(depth-1,gs,next_moves,not turnToMove)
+            gs.undoMove()
+            if score > maxscore:
+                maxscore = score
+                if depth == Depth:
+                    nextmove = move
+        return maxscore
+                
+    else:
+        minscore = CHECKMATE+1
+        for move in validMoves:
+            gs.makeMove(move)
+            next_moves = gs.getValidMoves()
+            score = findmoveminmax(depth-1,gs,next_moves,not turnToMove)
+            gs.undoMove()
+            if score < minscore:
+                minscore = score
+                if depth == Depth:
+                    nextmove = move
+        return minscore
+
 
 def scorematerial(gs,board):
     if gs.checkMate:

@@ -56,7 +56,7 @@ def main():
     sqSelected = () # no square selected initially keep track of the last click of the user (tuple : (row, col))
     playerClicks = [] # store (row, col) of clicks (two clicks) (two tuples: [(6,4),(4,4)])
     
-    playerone = False # if true then white plays
+    playerone =  False# if true then white plays
     playertwo = False # if true then black plays
 
     while running:
@@ -111,7 +111,7 @@ def main():
                     gameOver = False
        
         if not gameOver and not humanturn and not moveMade: 
-            AIMove = smartmovefinder.findbestmoves(gs,validMoves)
+            AIMove = smartmovefinder.findbestmoveminmax(gs,validMoves)
             if AIMove is None:
                 AIMove = smartmovefinder.findrandommove(validMoves)
             if AIMove is not None:
