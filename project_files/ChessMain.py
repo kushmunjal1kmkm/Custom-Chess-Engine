@@ -5,6 +5,7 @@ from pygame import color
 import os
 import pygame as p
 import ChessEngine
+import smartmovefinder
 
 WIDTH = HEIGHT = 512
 DIMENSION = 8
@@ -53,14 +54,18 @@ def main():
 
     sqSelected = () # no square selected initially keep track of the last click of the user (tuple : (row, col))
     playerClicks = [] # store (row, col) of clicks (two clicks) (two tuples: [(6,4),(4,4)])
+    
+    playerone = False
+    playertwo = False
 
     while running:
+        humanturn = (gs.whiteToMove and playerone) or (not gs.whiteToMove and playertwo)
         for e in p.event.get():
             if e.type == p.QUIT:
                 running = False
             # mouse handlers
             elif e.type == p.MOUSEBUTTONDOWN:
-                if not gameOver:
+                if not gameOver and humanturn:
                     location = p.mouse.get_pos()
                     col = location[0] // SQ_SIZE
                     row = location[1] // SQ_SIZE
@@ -88,6 +93,8 @@ def main():
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z: # undo move 
                     gs.undoMove()
+                    if not (playerone and playertwo): # if playing against an AI, undo the human's move as well
+                        gs.undoMove()
                     sqSelected = ()
                     playerClicks = []
                     moveMade = True
@@ -101,7 +108,13 @@ def main():
                     sqSelected = ()
                     playerClicks = []
                     gameOver = False
-        
+       
+        if not gameOver and not humanturn:
+            AIMove = smartmovefinder.findrandommove(validMoves)
+            gs.makeMove(AIMove)
+            moveMade = True
+            animate = True
+
         if moveMade:
             if animate:
                 animateMove(gs.moveLog[-1], screen, gs.board, clock)
