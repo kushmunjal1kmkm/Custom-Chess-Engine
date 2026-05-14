@@ -28,7 +28,7 @@ class GameState():
         self.castlerightlogs = [CastleRights(self.currentCastlingRights.wksLeft,self.currentCastlingRights.wqsLeft,self.currentCastlingRights.bksLeft,self.currentCastlingRights.bqsLeft)]
 
 
-    def makeMove(self,move):
+    def makeMove(self,move, is_ai_search=False):
         self.board[move.endRow][move.endCol] = move.pieceMoved
         self.board[move.startRow][move.startCol] = "--"
         self.whiteToMove = not self.whiteToMove
@@ -53,10 +53,13 @@ class GameState():
             self.board[move.startRow][move.endCol] = '--' # this is the empassant move so we are removing the enemy pawn from the board
 
         if move.isPawnPromotion:
-            promototedPiece = input("enter the piece you want to promote to (queen,rook,bishop,knight): ")
-            while promototedPiece not in ["queen", "rook", "bishop", "knight"]:
-                print("invalid piece")
+            if not is_ai_search:
                 promototedPiece = input("enter the piece you want to promote to (queen,rook,bishop,knight): ")
+                while promototedPiece not in ["queen", "rook", "bishop", "knight"]:
+                    print("invalid piece")
+                    promototedPiece = input("enter the piece you want to promote to (queen,rook,bishop,knight): ")
+            else:
+                promototedPiece = "queen"
             self.board[move.endRow][move.endCol] = move.pieceMoved.split("-")[0] + "-" + promototedPiece
 
         if move.isCastleMove:
@@ -176,6 +179,16 @@ class GameState():
 # Castling moves are generated separately inside getValidMoves() only for
 # actual legal move generation, while getAllPossibleMoves() generates only
 # normal king moves for attack detection.
+
+        for i in range(len(moves)-1, -1, -1):
+            if moves[i].isEmpassantMove:
+                self.makeMove(moves[i], is_ai_search=True)
+                self.whiteToMove = not self.whiteToMove
+                in_check, _, _ = self.getPinAndCheck()
+                self.whiteToMove = not self.whiteToMove
+                self.undoMove()
+                if in_check:
+                    moves.pop(i)
         
         if len(moves) == 0:
             if self.isCheck:
@@ -553,6 +566,10 @@ class Move():
     '''
     
     def getChessNotation(self):
+        if self.isCastleMove:
+            if self.endCol - self.startCol == 2:
+                return "O-O"
+            return "O-O-O"
         return self.getRankFile(self.startRow, self.startCol) + self.getRankFile(self.endRow, self.endCol)
 
     def getRankFile(self, row, col):

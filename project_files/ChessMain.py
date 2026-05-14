@@ -8,9 +8,11 @@ import pygame as p
 import ChessEngine
 import smartmovefinder
 
-WIDTH = HEIGHT = 512
+BOARD_WIDTH = BOARD_HEIGHT = 512
+MOVE_LOG_PANEL_WIDTH = 250
+MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
 DIMENSION = 8
-SQ_SIZE = HEIGHT // DIMENSION
+SQ_SIZE = BOARD_HEIGHT // DIMENSION
 MAX_FPS = 15
 IMAGES = {}
 
@@ -34,7 +36,7 @@ def main():
     # this is the main loop of the game
     # these are the initial settings of the pygame module and sets the window dialog box setting
     p.init()
-    screen = p.display.set_mode((WIDTH, HEIGHT))
+    screen = p.display.set_mode((BOARD_WIDTH + MOVE_LOG_PANEL_WIDTH, BOARD_HEIGHT))
     clock = p.time.Clock()
     clock.tick(MAX_FPS)
     screen.fill(p.Color("white"))
@@ -50,14 +52,15 @@ def main():
 
     p.display.set_caption("Chess")
     LoadImages()
+    moveLogFont = p.font.SysFont("Arial", 14, False, False)
     
     running = True
 
     sqSelected = () # no square selected initially keep track of the last click of the user (tuple : (row, col))
     playerClicks = [] # store (row, col) of clicks (two clicks) (two tuples: [(6,4),(4,4)])
     
-    playerone =  False# if true then white plays
-    playertwo = False # if true then black plays
+    playerone =  True# if true then white plays
+    playertwo = True # if true then black plays
 
     while running:
         humanturn = (gs.whiteToMove and playerone) or (not gs.whiteToMove and playertwo)
@@ -70,6 +73,8 @@ def main():
                     location = p.mouse.get_pos()
                     col = location[0] // SQ_SIZE
                     row = location[1] // SQ_SIZE
+                    if col >= 8:
+                        continue
                     if sqSelected == (row,col): # if the user clicks the same square twice then we undo the move
                         sqSelected = ()
                         playerClicks = []
@@ -111,11 +116,11 @@ def main():
                     gameOver = False
        
         if not gameOver and not humanturn and not moveMade: 
-            AIMove = smartmovefinder.findbestmoveminmax(gs,validMoves)
+            AIMove = smartmovefinder.helperfindmovenegamaxalphabeta(gs,validMoves)
             if AIMove is None:
                 AIMove = smartmovefinder.findrandommove(validMoves)
             if AIMove is not None:
-                gs.makeMove(AIMove)
+                gs.makeMove(AIMove, is_ai_search=True)
                 moveMade = True
                 animate = True
 
@@ -126,7 +131,7 @@ def main():
             moveMade = False
             animate = False
 
-        drawGameState(screen, gs,validMoves,sqSelected)
+        drawGameState(screen, gs,validMoves,sqSelected, moveLogFont)
 
         if gs.checkMate:
             gameOver = True
@@ -156,10 +161,35 @@ def highlightsquares(screen,gs,validMoves,sqSelected):
                     screen.blit(highlight, (move.endCol * SQ_SIZE, move.endRow * SQ_SIZE))
 
 
-def drawGameState(screen,gs,validMoves,sqSelected):
+def drawGameState(screen,gs,validMoves,sqSelected, moveLogFont):
     drawBoard(screen)
     highlightsquares(screen,gs,validMoves,sqSelected)
     drawPieces(screen,gs.board)
+    drawMoveLog(screen, gs, moveLogFont)
+
+def drawMoveLog(screen, gs, font):
+    moveLogRect = p.Rect(BOARD_WIDTH, 0, MOVE_LOG_PANEL_WIDTH, MOVE_LOG_PANEL_HEIGHT)
+    p.draw.rect(screen, p.Color("black"), moveLogRect)
+    moveLog = gs.moveLog
+    moveTexts = []
+    for i in range(0, len(moveLog), 2):
+        moveString = str(i//2 + 1) + ". " + str(moveLog[i]) + " "
+        if i + 1 < len(moveLog):
+            moveString += str(moveLog[i+1])
+        moveTexts.append(moveString)
+
+    padding = 5
+    textY = padding
+    textX = padding
+    for i in range(len(moveTexts)):
+        text = moveTexts[i]
+        textObject = font.render(text, True, p.Color('white'))
+        textLocation = moveLogRect.move(textX, textY)
+        screen.blit(textObject, textLocation)
+        textY += textObject.get_height() + 2
+        if textY >= MOVE_LOG_PANEL_HEIGHT - padding:
+            textY = padding
+            textX += 115
 
 '''
 draw the squares on the board IMP to note that the first square is always white so doing zero based indexing if we add row and col and modulo 2 then if the after module its 0 then it is white and if its 1 then it is black
@@ -210,7 +240,7 @@ def animateMove(move,screen,board,clock):
 def drawText(screen, text):
     font = p.font.SysFont("Helvetica", 32, True, False)
     textObject = font.render(text, 0, p.Color('Gray'))
-    textLocation = p.Rect(0, 0, WIDTH, HEIGHT).move(WIDTH / 2 - textObject.get_width() / 2, HEIGHT / 2 - textObject.get_height() / 2)
+    textLocation = p.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move(BOARD_WIDTH / 2 - textObject.get_width() / 2, BOARD_HEIGHT / 2 - textObject.get_height() / 2)
     screen.blit(textObject, textLocation)
     textObject = font.render(text, 0, p.Color('Black'))
     screen.blit(textObject, textLocation.move(2, 2))

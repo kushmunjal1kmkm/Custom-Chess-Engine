@@ -18,7 +18,7 @@ def findbestmoves(gs,validMoves):
     random.shuffle(validMoves) # Shuffle so AI doesn't play the exact same game every time
     
     for move in validMoves:
-        gs.makeMove(move)
+        gs.makeMove(move, is_ai_search=True)
         opponentmoves = gs.getValidMoves()
         
         if gs.staleMate:
@@ -30,7 +30,7 @@ def findbestmoves(gs,validMoves):
             # So we need to find the minimum possible score the opponent can force us into.
             opponentMinScore = CHECKMATE + 1
             for opponentmove in opponentmoves:
-                gs.makeMove(opponentmove)
+                gs.makeMove(opponentmove, is_ai_search=True)
                 gs.getValidMoves() # Crucial: update flags for the new state
                 
                 # Evaluate the board from our perspective
@@ -70,7 +70,7 @@ def findmoveminmax(depth,gs,validMoves,turnToMove):
     if turnToMove:
         maxscore = -CHECKMATE-1
         for move in validMoves:
-            gs.makeMove(move)
+            gs.makeMove(move, is_ai_search=True)
             next_moves = gs.getValidMoves()
             score = findmoveminmax(depth-1,gs,next_moves,not turnToMove)
             gs.undoMove()
@@ -83,7 +83,7 @@ def findmoveminmax(depth,gs,validMoves,turnToMove):
     else:
         minscore = CHECKMATE+1
         for move in validMoves:
-            gs.makeMove(move)
+            gs.makeMove(move, is_ai_search=True)
             next_moves = gs.getValidMoves()
             score = findmoveminmax(depth-1,gs,next_moves,not turnToMove)
             gs.undoMove()
@@ -93,6 +93,62 @@ def findmoveminmax(depth,gs,validMoves,turnToMove):
                     nextmove = move
         return minscore
 
+def helperfindmovenegamax(gs,validmoves):
+    global nextmove 
+    nextmove = None
+    random.shuffle(validmoves) # Added so the AI doesn't play the exact same game every time
+    turnmultiplier = 1 if gs.whiteToMove else -1
+    findMoveNegaMax(gs,validmoves,Depth,turnmultiplier)
+    return nextmove
+
+def findMoveNegaMax(gs,validmoves,depth,turnmultiplier):
+    global nextmove
+    if depth == 0 or len(validmoves) == 0:
+        return turnmultiplier * scorematerial(gs,gs.board)
+
+    maxscore = -CHECKMATE-1
+    for move in validmoves:
+        gs.makeMove(move, is_ai_search=True)
+        nextmoves = gs.getValidMoves()
+        score = -findMoveNegaMax(gs,nextmoves,depth-1,-turnmultiplier)
+        if score > maxscore:
+            maxscore = score
+            if depth == Depth:
+                nextmove = move
+        gs.undoMove()
+        
+    return maxscore
+
+def helperfindmovenegamaxalphabeta(gs,validmoves):
+    global nextmove 
+    nextmove = None
+    random.shuffle(validmoves) # Added so the AI doesn't play the exact same game every time
+    turnmultiplier = 1 if gs.whiteToMove else -1
+    findMoveNegaMaxAlphaBeta(gs,validmoves,Depth,-CHECKMATE-1,CHECKMATE+1,turnmultiplier)
+    return nextmove
+
+def findMoveNegaMaxAlphaBeta(gs,validmoves,depth,alpha,beta,turnmultiplier):
+    global nextmove
+    if depth == 0 or len(validmoves) == 0:
+        return turnmultiplier * scorematerial(gs,gs.board)
+
+    maxscore = -CHECKMATE-1
+    for move in validmoves:
+        gs.makeMove(move, is_ai_search=True)
+        nextmoves = gs.getValidMoves()
+        score = -findMoveNegaMaxAlphaBeta(gs,nextmoves,depth-1,-beta,-alpha,-turnmultiplier)
+        if score > maxscore:
+            maxscore = score
+            if depth == Depth:
+                nextmove = move
+        gs.undoMove()
+        
+        if maxscore > alpha:
+            alpha = maxscore
+        if alpha >= beta:
+            break
+
+    return maxscore
 
 def scorematerial(gs,board):
     if gs.checkMate:
