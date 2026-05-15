@@ -4,7 +4,7 @@ piecescore = {"king":0, "queen":10, "rook":5, "bishop":3, "knight":3, "pawn":1}
 CHECKMATE = 1000
 STALEMATE = 0
 nextmove = None
-Depth = 3
+Depth = 4
 
 def findrandommove(validMoves):
     if len(validMoves) == 0:

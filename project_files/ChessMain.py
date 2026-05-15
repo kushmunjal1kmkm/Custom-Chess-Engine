@@ -6,7 +6,7 @@ from pygame import color
 import os
 import pygame as p
 import ChessEngine
-import smartmovefinder
+import multiprocessing
 
 BOARD_WIDTH = BOARD_HEIGHT = 512
 MOVE_LOG_PANEL_WIDTH = 250
@@ -32,6 +32,12 @@ def LoadImages():
 the main driver for our code this will handler user input and updating the graphics
 '''
 
+def find_ai_move(gs, validMoves, returnQueue):
+    AIMove = smartmovefinder.helperfindmovenegamaxalphabeta(gs, validMoves)
+    if AIMove is None:
+        AIMove = smartmovefinder.findrandommove(validMoves)
+    returnQueue.put(AIMove)
+
 def main():
     # this is the main loop of the game
     # these are the initial settings of the pygame module and sets the window dialog box setting
@@ -49,6 +55,8 @@ def main():
     moveMade = False
     animate = False
     gameOver = False
+    AIProcess = None
+    returnQueue = multiprocessing.Queue()
 
     p.display.set_caption("Chess")
     LoadImages()
@@ -60,7 +68,7 @@ def main():
     playerClicks = [] # store (row, col) of clicks (two clicks) (two tuples: [(6,4),(4,4)])
     
     playerone =  True# if true then white plays
-    playertwo = True # if true then black plays
+    playertwo = False # if true then black plays
 
     while running:
         humanturn = (gs.whiteToMove and playerone) or (not gs.whiteToMove and playertwo)
@@ -69,7 +77,7 @@ def main():
                 running = False
             # mouse handlers
             elif e.type == p.MOUSEBUTTONDOWN:
-                if not gameOver and humanturn:
+                if not gameOver:
                     location = p.mouse.get_pos()
                     col = location[0] // SQ_SIZE
                     row = location[1] // SQ_SIZE
@@ -81,21 +89,21 @@ def main():
                     else:
                         sqSelected = (row,col)
                         playerClicks.append(sqSelected) # this is the first click so we have append it to the list
+                    
                     if len(playerClicks) == 2: # this is the second click so we do the logic in this event loop
-                        # here we are initializing the move class of the chessengine library you can say
-                        move = ChessEngine.Move(playerClicks[0], playerClicks[1], gs.board)
-                        # print(move.getChessNotation())
-                        for i in range(len(validMoves)):
-                            if move == validMoves[i]:
-                            # here we are making the move but we are keeping a check behind this that is the move even valid 
-                                gs.makeMove(validMoves[i])
-                                moveMade = True
-                                animate = True
-                                sqSelected = ()
-                                playerClicks = []
-                        if not moveMade:
+                        if humanturn:
+                            move = ChessEngine.Move(playerClicks[0], playerClicks[1], gs.board)
+                            for i in range(len(validMoves)):
+                                if move == validMoves[i]:
+                                    gs.makeMove(validMoves[i])
+                                    moveMade = True
+                                    animate = True
+                                    sqSelected = ()
+                                    playerClicks = []
+                            if not moveMade:
+                                playerClicks = [sqSelected]
+                        else:
                             playerClicks = [sqSelected]
-            # key handlers 
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z: # undo move 
                     gs.undoMove()
@@ -106,6 +114,12 @@ def main():
                     moveMade = True
                     animate = False
                     gameOver = False
+                    if AIProcess is not None:
+                        AIProcess.terminate()
+                        AIProcess.join()
+                        AIProcess = None
+                    while not returnQueue.empty():
+                        returnQueue.get()
                 if e.key == p.K_r:
                     gs = ChessEngine.GameState()
                     validMoves = gs.getValidMoves()
@@ -114,15 +128,26 @@ def main():
                     sqSelected = ()
                     playerClicks = []
                     gameOver = False
+                    if AIProcess is not None:
+                        AIProcess.terminate()
+                        AIProcess.join()
+                        AIProcess = None
+                    while not returnQueue.empty():
+                        returnQueue.get()
        
         if not gameOver and not humanturn and not moveMade: 
-            AIMove = smartmovefinder.helperfindmovenegamaxalphabeta(gs,validMoves)
-            if AIMove is None:
-                AIMove = smartmovefinder.findrandommove(validMoves)
-            if AIMove is not None:
-                gs.makeMove(AIMove, is_ai_search=True)
-                moveMade = True
-                animate = True
+            if AIProcess is None:
+                AIProcess = multiprocessing.Process(target=find_ai_move, args=(gs, validMoves, returnQueue))
+                AIProcess.start()
+            
+            if not returnQueue.empty():
+                AIMove = returnQueue.get()
+                if AIMove is not None:
+                    gs.makeMove(AIMove, is_ai_search=True)
+                    moveMade = True
+                    animate = True
+                AIProcess.join()
+                AIProcess = None
 
         if moveMade:
             if animate:
@@ -149,14 +174,37 @@ def main():
 def highlightsquares(screen,gs,validMoves,sqSelected):
     if sqSelected != ():
         r,c = sqSelected
-        color = 'w' if gs.whiteToMove else 'b'
-        if gs.board[r][c][0] == color: # white piece selected
+        piece_color = gs.board[r][c][0]
+        if piece_color != '-': # if a piece is selected
             highlight = p.Surface((SQ_SIZE, SQ_SIZE))
             highlight.set_alpha(100)
             highlight.fill(p.Color('blue'))
             screen.blit(highlight, (c * SQ_SIZE, r * SQ_SIZE))
             highlight.fill(p.Color("yellow"))
-            for move in validMoves:
+            
+            moves_to_highlight = validMoves
+            turn_color = 'w' if gs.whiteToMove else 'b'
+            
+            if piece_color != turn_color:
+                # Save state
+                isCheck = gs.isCheck
+                pins = gs.pins
+                check = gs.check
+                checkMate = gs.checkMate
+                staleMate = gs.staleMate
+                
+                gs.whiteToMove = not gs.whiteToMove
+                moves_to_highlight = gs.getValidMoves()
+                gs.whiteToMove = not gs.whiteToMove
+                
+                # Restore state
+                gs.isCheck = isCheck
+                gs.pins = pins
+                gs.check = check
+                gs.checkMate = checkMate
+                gs.staleMate = staleMate
+                
+            for move in moves_to_highlight:
                 if move.startRow == r and move.startCol == c:
                     screen.blit(highlight, (move.endCol * SQ_SIZE, move.endRow * SQ_SIZE))
 
